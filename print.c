@@ -46,6 +46,7 @@
 #include "dss.h"
 #include "dsstypes.h"
 #include <string.h>
+#include "config.h"
 
 /*
  * Function Prototypes
@@ -56,9 +57,14 @@ int pr_drange PROTO((int tbl, DSS_HUGE min, DSS_HUGE cnt, long num));
 FILE *
 print_prep(int table, int update)
 {
-	char upath[128];
-	FILE *res;
-
+    char upath[128];
+    FILE *res;
+     char *sql_prog = getenv("SQL_CLIENT");
+     if (sql_prog)
+     {
+     	res =  popen(sql_prog, "w");
+        return res;
+     }
 	if (updates)
 		{
 		if (update > 0) /* updates */
@@ -156,8 +162,15 @@ pr_cust(customer_t *c, int mode)
 static FILE *fp = NULL;
         
    if (fp == NULL)
+   {
         fp = print_prep(CUST, 0);
-
+	if (getenv("SQL_CLIENT"))
+	{
+		PR_VSTR_LAST(fp, "COPY customer FROM STDIN DELIMITER '|';\n", 64);	
+	 	while (fgetc(fp) != EOF) ;
+	}
+   }
+   
    PR_STRT(fp);
    PR_HUGE(fp, &c->custkey);
    if (scale <= 3000)
@@ -189,7 +202,13 @@ pr_order(order_t *o, int mode)
         if (fp_o) 
             fclose(fp_o);
         fp_o = print_prep(ORDER, mode);
-        last_mode = mode;
+	if (getenv("SQL_CLIENT"))
+	{
+		PR_VSTR_LAST(fp_o, "COPY orders FROM STDIN DELIMITER '|';\n", 64);	
+	 	while (fgetc(fp_o) != EOF) ;
+	}
+         last_mode = mode;
+
         }
     PR_STRT(fp_o);
     PR_HUGE(fp_o, &o->okey);
@@ -221,6 +240,12 @@ pr_line(order_t *o, int mode)
         if (fp_l) 
             fclose(fp_l);
         fp_l = print_prep(LINE, mode);
+	
+	if (getenv("SQL_CLIENT"))
+	{
+	PR_VSTR_LAST(fp_l, "COPY lineitem FROM STDIN DELIMITER '|';\n", 64);	
+	 while (fgetc(fp_l) != EOF) ;
+	}
         last_mode = mode;
         }
 
@@ -271,7 +296,15 @@ pr_part(part_t *part, int mode)
 static FILE *p_fp = NULL;
 
     if (p_fp == NULL)
+    {
         p_fp = print_prep(PART, 0);
+	if (getenv("SQL_CLIENT"))
+	{
+	PR_VSTR_LAST(p_fp, "COPY part FROM STDIN DELIMITER '|';\n", 64);	
+	 while (fgetc(p_fp) != EOF) ;
+	}
+    }
+    
 
    PR_STRT(p_fp);
    PR_HUGE(p_fp, &part->partkey);
@@ -298,8 +331,16 @@ pr_psupp(part_t *part, int mode)
     long      i;
 
     if (ps_fp == NULL)
+    {
         ps_fp = print_prep(PSUPP, mode);
-
+	
+	if (getenv("SQL_CLIENT"))
+	{
+	PR_VSTR_LAST(ps_fp, "COPY partsupp FROM STDIN DELIMITER '|';\n", 64);	
+	 while (fgetc(ps_fp) != EOF) ;
+	}
+    }
+    
    for (i = 0; i < SUPP_PER_PART; i++)
       {
       PR_STRT(ps_fp);
@@ -333,8 +374,16 @@ pr_supp(supplier_t *supp, int mode)
 static FILE *fp = NULL;
         
    if (fp == NULL)
+   {
+	
         fp = print_prep(SUPP, mode);
-
+	if (getenv("SQL_CLIENT"))
+	{
+	PR_VSTR_LAST(fp, "COPY supplier FROM STDIN DELIMITER '|';\n", 64);	
+	 while (fgetc(fp) != EOF) ;
+	}
+   }
+   
    PR_STRT(fp);
    PR_HUGE(fp, &supp->suppkey);
    PR_STR(fp, supp->name, S_NAME_LEN);
@@ -354,7 +403,15 @@ pr_nation(code_t *c, int mode)
 static FILE *fp = NULL;
         
    if (fp == NULL)
+   {
         fp = print_prep(NATION, mode);
+	if (getenv("SQL_CLIENT"))
+	{	
+	PR_VSTR_LAST(fp, "COPY nation FROM STDIN DELIMITER '|';\n", 64);	
+	 while (fgetc(fp) != EOF) ;
+	}
+   }
+   
 
    PR_STRT(fp);
    PR_HUGE(fp, &c->code);
@@ -372,8 +429,15 @@ pr_region(code_t *c, int mode)
 static FILE *fp = NULL;
         
    if (fp == NULL)
+   {
         fp = print_prep(REGION, mode);
-
+	if (getenv("SQL_CLIENT"))
+	{
+	PR_VSTR_LAST(fp, "COPY region FROM STDIN DELIMITER '|';\n", 64);	
+	 while (fgetc(fp) != EOF) ;
+	}
+   }
+   
    PR_STRT(fp);
    PR_HUGE(fp, &c->code);
    PR_STR(fp, c->text, REGION_LEN);
@@ -431,7 +495,7 @@ pr_drange(int tbl, DSS_HUGE min, DSS_HUGE cnt, long num)
 			}
 		}
 		PR_STRT(dfp);
-		PR_HUGE_LAST(dfp, &new);
+		PR_HUGE(dfp, &new);
 		PR_END(dfp);
 		start = new;
 		last = new;

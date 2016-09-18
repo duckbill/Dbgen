@@ -33,18 +33,32 @@
 #include "dss.h"
 #include "dsstypes.h"
 
+static FILE * sql_client;
+
 int 
 close_direct(void)
 {
     /* any post load cleanup goes here */
-    return(0);
+     char *sql_prog = getenv("SQL_CLIENT");
+     if (!sql_prog)
+     {
+	  printf("error cannot open pipe for direct load\n");
+          return (1);
+     }
+     sql_client = popen(sql_prog, "w");
+     if (sql_client == NULL) {
+	  printf("error cannot open pipe for direct load\n");
+	  return (1);
+     }
+     return(0);
 }
 
 int 
 prep_direct(void)
 {
     /* any preload prep goes here */
-    return(0);
+     pclose(sql_client);
+     return(0);
 }
 
 int 
@@ -61,13 +75,32 @@ hd_cust (FILE *f)
 int 
 ld_cust (customer_t *cp, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined",
-            "for the customer table");
-
+     printf("mode is %d\n", mode);
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY customer FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 
+	 begin = 1;
+    }
+   PR_STRT(sql_client);
+   PR_HUGE(sql_client, &cp->custkey);
+   if (scale <= 3000)
+   PR_VSTR(sql_client, cp->name, C_NAME_LEN);
+   else
+   PR_VSTR(sql_client, cp->name, C_NAME_LEN + 3);
+   PR_VSTR(sql_client, cp->address, cp->alen);
+   PR_HUGE(sql_client, &cp->nation_code);
+   PR_STR(sql_client, cp->phone, PHONE_LEN);
+   PR_MONEY(sql_client, &cp->acctbal);
+   PR_STR(sql_client, cp->mktsegment, C_MSEG_LEN);
+   PR_VSTR_LAST(sql_client, cp->comment, cp->clen);
+   PR_END(sql_client);
     return(0);
 }
 
@@ -85,24 +118,34 @@ hd_part (FILE *f)
 int 
 ld_part (part_t *pp, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("No load routine has been defined for the part table\n");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY part FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 }
 
 int 
 ld_psupp (part_t *pp, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined for the",
-            "psupp table\n");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY partsupp FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 
 }
@@ -122,13 +165,17 @@ hd_supp (FILE *f)
 int 
 ld_supp (supplier_t *sp, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined",
-            "for the supplier table\n");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY supplier FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 }
 
@@ -147,25 +194,33 @@ hd_order (FILE *f)
 int 
 ld_order (order_t *p, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined",
-            "for the order table");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY orders FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 }
 
 int ld_line (order_t *p, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined",
-            "for the line table");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY lineitem FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 }
 
@@ -210,13 +265,17 @@ hd_nation (FILE *f)
 int 
 ld_nation (code_t *cp, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined",
-            "for the nation table");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY nation FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 }
 
@@ -234,13 +293,17 @@ hd_region (FILE *f)
 int 
 ld_region (code_t *cp, int mode)
 {
-    static int count = 0;
-
-    if (! count++)
-        printf("%s %s\n",
-            "No load routine has been defined",
-            "for the region table");
-
+    static int begin = 1;
+    while (fgetc(sql_client) != EOF) ;
+    if(begin == 1)
+    {
+	 fprintf(sql_client, "BEGIN;\n");
+	 while (fgetc(sql_client) != EOF);
+	 fprintf(sql_client,
+		 "COPY region FROM STDIN DELIMITER '%c';\n", '|');
+	 while (fgetc(sql_client) != EOF) ;
+	 begin = 1;
+    }
     return(0);
 }
 
